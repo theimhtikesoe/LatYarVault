@@ -194,22 +194,6 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
         const directProvider = new ethers.JsonRpcProvider(HOLESKY_RPC_URL)
         console.log("Created direct provider to RPC")
 
-        // Verify contract bytecode exists at expected addresses
-        try {
-          const stakingCode = await directProvider.getCode(STAKING_DASHBOARD_ADDRESS)
-          console.log("StakingDashboard contract code:", stakingCode)
-          if (!stakingCode || stakingCode === "0x") {
-            toast({
-              title: "Contract Not Found",
-              description: "StakingDashboard contract not found at address on the configured RPC. Verify the address and network.",
-              variant: "destructive",
-            })
-            return
-          }
-        } catch (codeErr) {
-          console.warn("Failed to fetch contract code:", codeErr)
-        }
-
         // Create browser provider for wallet interaction
         const browserProvider = new ethers.BrowserProvider(window.ethereum)
         console.log("Created browser provider")
@@ -218,16 +202,27 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
         const web3Signer = await browserProvider.getSigner()
         console.log("Got signer:", await web3Signer.getAddress())
 
-        // Get network information
-        const network = await directProvider.getNetwork()
-        console.log("Network info:", network.name, network.chainId)
-
         setNetworkName("Connected")
         setAccount(userAddress)
         setProvider(directProvider)
         setSigner(web3Signer)
         setIsConnected(true)
-        setChainId(Number(network.chainId))
+        setChainId(HOLESKY_CHAIN_ID)
+
+        // Verify contract bytecode exists at expected addresses without blocking wallet connection.
+        try {
+          const stakingCode = await directProvider.getCode(STAKING_DASHBOARD_ADDRESS)
+          console.log("StakingDashboard contract code:", stakingCode)
+          if (!stakingCode || stakingCode === "0x") {
+            toast({
+              title: "Contract Not Found",
+              description: "Wallet connected, but the staking contract was not found on the configured network.",
+              variant: "destructive",
+            })
+          }
+        } catch (codeErr) {
+          console.warn("Failed to fetch contract code:", codeErr)
+        }
 
         // Print contract addresses for debugging
         console.log("Contract addresses:", {
