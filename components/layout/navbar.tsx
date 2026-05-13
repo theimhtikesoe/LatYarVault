@@ -25,8 +25,10 @@ export function Navbar() {
     connectWallet,
     disconnectWallet,
     isConnected,
-    networkName,
     refreshBalances,
+    ethBalance,
+    dETHBalance,
+    sETHBalance,
   } = useWeb3()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
@@ -56,8 +58,15 @@ export function Navbar() {
   }, [pathname])
 
   const formatBalance = (balance: string) => {
-    return Number.parseFloat(balance).toFixed(4)
+    const value = Number.parseFloat(balance)
+    return Number.isFinite(value) ? value.toFixed(4) : "0.0000"
   }
+
+  const balanceRows = [
+    { symbol: "ETH", value: ethBalance },
+    { symbol: "dETH", value: dETHBalance },
+    { symbol: "sETH", value: sETHBalance },
+  ]
 
   const copyAddress = () => {
     if (account) {
@@ -113,7 +122,12 @@ export function Navbar() {
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <div className="hidden lg:flex items-center space-x-3 bg-lightblue-50 px-4 py-2 rounded-lg">
-                          
+                          {balanceRows.map((token) => (
+                            <div key={token.symbol} className="flex items-center gap-1 text-sm">
+                              <span className="font-semibold text-lightblue-950">{formatBalance(token.value)}</span>
+                              <span className="text-lightblue-600">{token.symbol}</span>
+                            </div>
+                          ))}
                           <Button
                             variant="ghost"
                             size="icon"
@@ -181,7 +195,14 @@ export function Navbar() {
                           {account ? `${account.substring(0, 6)}...${account.substring(account.length - 4)}` : ""}
                         </div>
 
-                      
+                        <div className="space-y-2 rounded-md border border-lightblue-100 bg-white p-3">
+                          {balanceRows.map((token) => (
+                            <div key={token.symbol} className="flex items-center justify-between text-sm">
+                              <span className="font-medium text-lightblue-700">{token.symbol}</span>
+                              <span className="font-mono text-lightblue-950">{formatBalance(token.value)}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
 
                       <DropdownMenuSeparator />
@@ -221,9 +242,33 @@ export function Navbar() {
                       </Badge>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuLabel>Wallet Balances</DropdownMenuLabel>
+                  <DropdownMenuContent align="end" className="w-64">
+                    <DropdownMenuLabel className="flex items-center justify-between">
+                      <span>Connected Wallet</span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-lightblue-500 hover:text-lightblue-700"
+                        onClick={handleRefresh}
+                        disabled={isRefreshing}
+                      >
+                        <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+                      </Button>
+                    </DropdownMenuLabel>
                     <DropdownMenuSeparator />
+                    <div className="px-2 py-2">
+                      <div className="bg-lightblue-50 p-2 rounded-md text-sm font-mono mb-3">
+                        {account ? `${account.substring(0, 6)}...${account.substring(account.length - 4)}` : ""}
+                      </div>
+                      <div className="space-y-2 rounded-md border border-lightblue-100 bg-white p-3">
+                        {balanceRows.map((token) => (
+                          <div key={token.symbol} className="flex items-center justify-between text-sm">
+                            <span className="font-medium text-lightblue-700">{token.symbol}</span>
+                            <span className="font-mono text-lightblue-950">{formatBalance(token.value)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={disconnectWallet} className="cursor-pointer text-red-500">
                       <LogOut className="mr-2 h-4 w-4" />
