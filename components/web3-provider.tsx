@@ -13,7 +13,8 @@ import stakingDashboardAbi from "@/lib/abis/stakingDashboard.json"
 
 type WalletProvider = ethers.Eip1193Provider & {
   on: (event: "accountsChanged" | "chainChanged", handler: (...args: any[]) => void) => void
-  removeAllListeners: () => void
+  removeListener?: (event: "accountsChanged" | "chainChanged", handler: (...args: any[]) => void) => void
+  removeAllListeners?: () => void
 }
 
 declare global {
@@ -288,8 +289,15 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const disconnectWallet = () => {
     setAccount(null)
+    setProvider(null)
     setSigner(null)
+    setDETHContract(null)
+    setSETHContract(null)
+    setGovernanceContract(null)
+    setStakingDashboardContract(null)
     setIsConnected(false)
+    setChainId(null)
+    setNetworkName("")
     setHasShownConnectToast(false)
     setEthBalance("0")
     setDETHBalance("0")
@@ -314,50 +322,64 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Listen for account changes
   useEffect(() => {
-    if (typeof window !== "undefined" && window.ethereum) {
-      window.ethereum.on("accountsChanged", async (accounts: string[]) => {
-        console.log("Account changed:", accounts)
-        if (accounts.length > 0) {
-          setAccount(accounts[0])
+    const ethereum = typeof window !== "undefined" ? window.ethereum : undefined
 
-          await loadBalances(accounts[0])
-        } else {
-          setAccount(null)
-          setIsConnected(false)
-          setHasShownConnectToast(false)
-          setEthBalance("0")
-          setDETHBalance("0")
-          setSETHBalance("0")
-        }
-      })
-
-      // Add listener for chain changes
-      window.ethereum.on("chainChanged", async (chainId: string) => {
-        const newChainId = Number.parseInt(chainId, 16)
-        console.log("Chain changed to:", newChainId)
-        setChainId(newChainId)
-
-        if (newChainId !== HOLESKY_CHAIN_ID) {
-          toast({
-            title: "Wrong Network",
-            description: "Please switch to the correct network",
-            variant: "destructive",
-          })
-          setIsConnected(false)
-          setNetworkName("")
-          setHasShownConnectToast(false)
-        } else {
-          setNetworkName("Connected")
-          if (account) {
-            await loadBalances(account)
-          }
-        }
-      })
+    if (!ethereum) {
+      return
     }
 
+    const handleAccountsChanged = async (accounts: string[]) => {
+      console.log("Account changed:", accounts)
+      if (accounts.length > 0) {
+        setAccount(accounts[0])
+        await loadBalances(accounts[0])
+      } else {
+        setAccount(null)
+        setSigner(null)
+        setDETHContract(null)
+        setSETHContract(null)
+        setGovernanceContract(null)
+        setStakingDashboardContract(null)
+        setIsConnected(false)
+        setHasShownConnectToast(false)
+        setEthBalance("0")
+        setDETHBalance("0")
+        setSETHBalance("0")
+      }
+    }
+
+    const handleChainChanged = async (chainId: string) => {
+      const newChainId = Number.parseInt(chainId, 16)
+      console.log("Chain changed to:", newChainId)
+      setChainId(newChainId)
+
+      if (newChainId !== HOLESKY_CHAIN_ID) {
+        toast({
+          title: "Wrong Network",
+          description: "Please switch to the correct network",
+          variant: "destructive",
+        })
+        setIsConnected(false)
+        setNetworkName("")
+        setHasShownConnectToast(false)
+      } else {
+        setNetworkName("Connected")
+        if (account) {
+          setIsConnected(true)
+          await loadBalances(account)
+        }
+      }
+    }
+
+    ethereum.on("accountsChanged", handleAccountsChanged)
+    ethereum.on("chainChanged", handleChainChanged)
+
     return () => {
-      if (typeof window !== "undefined" && window.ethereum) {
-        window.ethereum.removeAllListeners()
+      if (ethereum.removeListener) {
+        ethereum.removeListener("accountsChanged", handleAccountsChanged)
+        ethereum.removeListener("chainChanged", handleChainChanged)
+      } else if (ethereum.removeAllListeners) {
+        ethereum.removeAllListeners()
       }
     }
   }, [account])
