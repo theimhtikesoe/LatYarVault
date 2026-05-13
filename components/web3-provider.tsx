@@ -4,6 +4,7 @@ import type React from "react"
 import { createContext, useContext, useState, useEffect } from "react"
 import { ethers } from "ethers"
 import { useToast } from "@/components/ui/use-toast"
+import { ToastAction } from "@/components/ui/toast"
 
 // Contract ABIs and addresses
 import dETHAbi from "@/lib/abis/dETH.json"
@@ -33,6 +34,7 @@ const STAKING_DASHBOARD_ADDRESS = process.env.NEXT_PUBLIC_STAKING_DASHBOARD_ADDR
 // Holesky testnet configuration (use NEXT_PUBLIC_ env vars on the client)
 const HOLESKY_CHAIN_ID = Number(process.env.NEXT_PUBLIC_HOLESKY_CHAIN_ID) || 17000
 const HOLESKY_RPC_URL = process.env.NEXT_PUBLIC_HOLESKY_RPC_URL || "https://holesky.drpc.org"
+const METAMASK_DOWNLOAD_URL = "https://metamask.io/download/"
 
 // Warn when fallback values are used (helps developers notice missing env)
 if (typeof window !== "undefined") {
@@ -98,6 +100,37 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const { toast } = useToast()
 
+  const getWalletInstallUrl = () => {
+    if (typeof window === "undefined") {
+      return METAMASK_DOWNLOAD_URL
+    }
+
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(window.navigator.userAgent)
+
+    if (!isMobile) {
+      return METAMASK_DOWNLOAD_URL
+    }
+
+    const dappUrl = `${window.location.host}${window.location.pathname}${window.location.search}`
+    return `https://metamask.app.link/dapp/${dappUrl}`
+  }
+
+  const openWalletInstallUrl = () => {
+    if (typeof window === "undefined") {
+      return
+    }
+
+    const walletUrl = getWalletInstallUrl()
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(window.navigator.userAgent)
+
+    if (isMobile) {
+      window.location.href = walletUrl
+      return
+    }
+
+    window.open(walletUrl, "_blank", "noopener,noreferrer")
+  }
+
   const loadBalances = async (address: string, rpcProvider = provider ?? new ethers.JsonRpcProvider(HOLESKY_RPC_URL)) => {
     const [ethResult, dETHResult, sETHResult] = await Promise.allSettled([
       rpcProvider.getBalance(address),
@@ -145,6 +178,11 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
         })
 
         const userAddress = accounts[0]
+
+        if (!userAddress) {
+          throw new Error("No wallet account was returned by the wallet provider.")
+        }
+
         console.log("Connected account:", userAddress)
 
         // Check current chain ID
@@ -270,19 +308,28 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
           })
           setHasShownConnectToast(true)
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error connecting wallet:", error)
+        const rejected = error?.code === 4001
+
         toast({
-          title: "Connection Failed",
-          description: "Failed to connect wallet. Please try again.",
+          title: rejected ? "Connection Rejected" : "Connection Failed",
+          description: rejected ? "Wallet connection was cancelled in your wallet." : "Failed to connect wallet. Please try again.",
           variant: "destructive",
         })
       }
     } else {
+      openWalletInstallUrl()
+
       toast({
-        title: "Metamask Not Found",
-        description: "Please install Metamask to use this application",
+        title: "Wallet Not Found",
+        description: "Install MetaMask or open this site inside the MetaMask mobile browser, then try again.",
         variant: "destructive",
+        action: (
+          <ToastAction altText="Open MetaMask" onClick={openWalletInstallUrl}>
+            Open
+          </ToastAction>
+        ),
       })
     }
   }
