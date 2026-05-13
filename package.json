@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "concurrently \"npm run backend\" \"next dev --turbopack\"",
     "backend": "cd backend && node index.js",
+    "build": "next build",
+    "vercel-build": "next build",
     "start": "concurrently \"npm run backend\" \"next dev\""
   },
   "dependencies": {
